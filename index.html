@@ -349,22 +349,29 @@
   .phase.start { border-left: 3px solid var(--blue); }
   .phase.refine { border-left: 3px solid var(--green); }
   .phase.refine .phase-num, .phase.refine .phase-name { color: var(--green); }
-  .phase-hint { margin-left: auto; font-size: 12px; color: var(--text-muted); opacity: 0.55; transition: opacity 0.2s ease, color 0.2s ease; }
-  .phase:hover .phase-hint { opacity: 0.9; color: var(--blue); }
-  .phase-tip {
-    position: absolute; bottom: calc(100% + 10px); left: 50%;
-    transform: translateX(-50%) translateY(6px);
-    width: 290px; background: var(--surface-2); border: 1px solid rgba(88,166,255,0.25);
-    border-radius: 8px; padding: 11px 14px; font-size: 12.5px; line-height: 1.5;
-    color: var(--text-secondary); box-shadow: 0 10px 34px rgba(0,0,0,0.5);
-    opacity: 0; pointer-events: none; z-index: 60;
-    transition: opacity 0.18s ease, transform 0.18s ease;
+  .phase-hint { margin-left: auto; font-size: 12px; color: var(--text-muted); opacity: 0.5; transition: opacity 0.2s ease, color 0.2s ease; }
+  .phase:hover .phase-hint, .phase.active .phase-hint { opacity: 0.95; color: var(--blue); }
+  .phase.refine:hover .phase-hint, .phase.refine.active .phase-hint { color: var(--green); }
+  .phase.active {
+    border-color: rgba(88,166,255,0.55);
+    box-shadow: 0 0 0 1px rgba(88,166,255,0.22), 0 6px 24px rgba(0,0,0,0.35), 0 0 22px rgba(88,166,255,0.08);
+    transform: translateY(-3px);
   }
-  .phase-tip::after {
-    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-    border: 6px solid transparent; border-top-color: var(--surface-2);
+  .phase.refine.active {
+    border-color: rgba(126,231,135,0.6);
+    box-shadow: 0 0 0 1px rgba(126,231,135,0.25), 0 6px 24px rgba(0,0,0,0.35), 0 0 22px rgba(126,231,135,0.1);
   }
-  .phase:hover .phase-tip { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* ── Phase detail panel — follows hover, auto-rotates when idle ── */
+  .phase-detail {
+    display: flex; gap: 18px; align-items: flex-start;
+    margin-top: 1.1rem; padding: 1.05rem 1.4rem; min-height: 96px; max-width: 62rem;
+    background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue);
+    border-radius: 10px; transition: border-color 0.35s ease;
+  }
+  .pd-num { font-family: var(--mono); font-size: 30px; font-weight: 700; color: var(--blue); min-width: 46px; line-height: 1.1; transition: color 0.35s ease; }
+  .pd-name { font-weight: 700; font-size: 19px; color: var(--text); }
+  .pd-desc { font-size: 15px; color: var(--text-secondary); line-height: 1.55; margin-top: 5px; }
+  .pd-rotating { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-left: auto; align-self: flex-start; opacity: 0.7; transition: opacity 0.2s ease; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -611,26 +618,27 @@
 <div class="section" id="s5b">
   <div class="label anim">The Skill Process</div>
   <h1 class="anim" style="margin-bottom:0.4rem;">Inside the Loop · <span class="grad">The 12 Phases</span></h1>
-  <p class="anim" style="color:var(--text-dim);max-width:54rem;margin-bottom:1.1rem;font-size:16px;">Worked in order, one checkable step at a time. Each links to a reference file with the concrete commands — and each run sharpens the steps for the next. <span style="color:var(--blue);">Hover any phase</span> for what it does.</p>
+  <p class="anim" style="color:var(--text-dim);max-width:54rem;margin-bottom:1.1rem;font-size:16px;">Worked in order, one checkable step at a time. Each encodes the <em>thinking</em>, not just the mechanics — and each run sharpens the steps for the next. <span style="color:var(--blue);">Hover a phase</span> (or watch it cycle) for what each does.</p>
 
   <div class="phase-grid anim">
-    <div class="phase start"><span class="phase-num">0</span><span class="phase-name">Investigate real docs</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Pull real examples, read their stored OCR, and catalog the variance — <em>before</em> designing anything. The one rule that matters most.</div></div>
-    <div class="phase"><span class="phase-num">1</span><span class="phase-name">Design the schema</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Faithful + document-native: transcribe what's printed, add only light mechanical derivation. Flat arrays + grouping keys — no array-in-array.</div></div>
-    <div class="phase"><span class="phase-num">2</span><span class="phase-name">Prompt blocks</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Compose the system prompt from reusable, doc-type-agnostic blocks. Make a new block only when it's cohesive — never fragment arbitrarily.</div></div>
-    <div class="phase"><span class="phase-num">3</span><span class="phase-name">Migration</span><span class="phase-hint">ⓘ</span><div class="phase-tip">One migration: flip the registry row to enabled, insert the prompt sections + the versioned schema. Insert a new version, never mutate.</div></div>
-    <div class="phase"><span class="phase-num">4</span><span class="phase-name">Post-processor</span><span class="phase-hint">ⓘ</span><div class="phase-tip">A pure function that re-nests the LLM's flat arrays into the stored wire shape and derives aggregates. Unit-tested with literal in/out.</div></div>
-    <div class="phase"><span class="phase-num" style="color:var(--orange);">5</span><span class="phase-name">Benchmark</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Ground-truth from real docs via the fast local harness; verify against the real doc; report adjusted scores only. The accuracy gate.</div></div>
-    <div class="phase"><span class="phase-num">6</span><span class="phase-name">Classification</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Confirm a <em>fresh</em> doc routes to the new type. Old docs read as their pre-existing type (stale labels) — only tune hints if a fresh doc misroutes.</div></div>
-    <div class="phase"><span class="phase-num">7</span><span class="phase-name">Scope &amp; follow-ups</span><span class="phase-hint">ⓘ</span><div class="phase-tip">State clearly what's in this PR vs deferred (e.g. the consumer-side ingest). File follow-up tickets instead of contorting DI now.</div></div>
-    <div class="phase"><span class="phase-num">8</span><span class="phase-name">Consumer handoff spec</span><span class="phase-hint">ⓘ</span><div class="phase-tip">A skim-first doc for the PR reviewer + downstream team: real examples, the DI-vs-consumer scope boundary, and the field mapping.</div></div>
-    <div class="phase"><span class="phase-num">9</span><span class="phase-name">Verify</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Build + tests + the scorer over the regression set, then one final end-to-end run through the real pipeline as a sanity check.</div></div>
-    <div class="phase"><span class="phase-num">10</span><span class="phase-name">Staging verification</span><span class="phase-hint">ⓘ</span><div class="phase-tip">The real end-to-end on a prod replica: fresh classification, source attribution, push behavior, and accuracy across the wider corpus.</div></div>
-    <div class="phase refine"><span class="phase-num">11</span><span class="phase-name">Refine this skill ⟳</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Retrospective — fold what was wrong / missing back into the skill <em>now</em>, and grow the worked-example set. The self-improvement step.</div></div>
+    <div class="phase start" data-accent="blue" data-desc="Pull real examples, read their stored OCR, and catalog the variance — <em>before</em> designing anything. The one rule that matters most."><span class="phase-num">0</span><span class="phase-name">Investigate real docs</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase" data-accent="blue" data-desc="Faithful + document-native: transcribe what's printed, add only light mechanical derivation. Flat arrays + grouping keys — no array-in-array."><span class="phase-num">1</span><span class="phase-name">Design the schema</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase" data-accent="blue" data-desc="Compose the system prompt from reusable, doc-type-agnostic blocks. Make a new block only when it's cohesive — never fragment arbitrarily."><span class="phase-num">2</span><span class="phase-name">Prompt blocks</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase" data-accent="blue" data-desc="One migration: flip the registry row to enabled, insert the prompt sections + the versioned schema. Insert a new version, never mutate."><span class="phase-num">3</span><span class="phase-name">Migration</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase" data-accent="blue" data-desc="A pure function that re-nests the LLM's flat arrays into the stored wire shape and derives aggregates. Unit-tested with literal in/out."><span class="phase-num">4</span><span class="phase-name">Post-processor</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase" data-accent="orange" data-desc="Ground-truth from real docs via the fast local harness; verify against the real doc; report adjusted scores only. The accuracy gate."><span class="phase-num" style="color:var(--orange);">5</span><span class="phase-name">Benchmark</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase" data-accent="blue" data-desc="Confirm a <em>fresh</em> doc routes to the new type. Old docs read as their pre-existing type (stale labels) — only tune hints if a fresh doc misroutes."><span class="phase-num">6</span><span class="phase-name">Classification</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase" data-accent="blue" data-desc="State clearly what's in this PR vs deferred (e.g. the consumer-side ingest). File follow-up tickets instead of contorting DI now."><span class="phase-num">7</span><span class="phase-name">Scope &amp; follow-ups</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase" data-accent="blue" data-desc="A skim-first doc for the PR reviewer + downstream team: real examples, the DI-vs-consumer scope boundary, and the field mapping."><span class="phase-num">8</span><span class="phase-name">Consumer handoff spec</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase" data-accent="blue" data-desc="Build + tests + the scorer over the regression set, then one final end-to-end run through the real pipeline as a sanity check."><span class="phase-num">9</span><span class="phase-name">Verify</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase" data-accent="blue" data-desc="The real end-to-end on a prod replica: fresh classification, source attribution, push behavior, and accuracy across the wider corpus."><span class="phase-num">10</span><span class="phase-name">Staging verification</span><span class="phase-hint">ⓘ</span></div>
+    <div class="phase refine" data-accent="green" data-desc="Retrospective — fold what was wrong / missing back into the skill <em>now</em>, and grow the worked-example set. The self-improvement step."><span class="phase-num">11</span><span class="phase-name">Refine this skill ⟳</span><span class="phase-hint">ⓘ</span></div>
   </div>
 
-  <div class="insight anim" style="margin-top:1rem;max-width:54rem;">
-    <span class="insight-icon">🧠</span>
-    <span>The skill encodes the <strong style="color:var(--text);">thinking</strong> (Phase 0 — investigate before you design), not just the mechanics. Get the thinking right and the rest is downstream.</span>
+  <div class="phase-detail anim" id="phaseDetail">
+    <span class="pd-num" id="pdNum">0</span>
+    <div style="flex:1;"><span class="pd-name" id="pdName">Investigate real docs</span><div class="pd-desc" id="pdDesc"></div></div>
+    <span class="pd-rotating" id="pdRot">auto ⟳</span>
   </div>
 </div>
 
@@ -1046,6 +1054,46 @@
     requestAnimationFrame(drawParticles);
   }
   drawParticles();
+
+  // ── Phase detail panel (slide 5b): follows hover, auto-rotates when idle ──
+  (function () {
+    var grid = document.querySelector('#s5b .phase-grid');
+    var panel = document.getElementById('phaseDetail');
+    if (!grid || !panel) return;
+    var chips = Array.prototype.slice.call(grid.querySelectorAll('.phase'));
+    var pdNum = document.getElementById('pdNum');
+    var pdName = document.getElementById('pdName');
+    var pdDesc = document.getElementById('pdDesc');
+    var pdRot = document.getElementById('pdRot');
+    var s5b = document.getElementById('s5b');
+    var ACCENT = { blue: '#58a6ff', orange: '#ffa657', green: '#7ee787' };
+    var idx = 0, hovering = false;
+
+    function render(i) {
+      idx = (i + chips.length) % chips.length;
+      var chip = chips[idx];
+      chips.forEach(function (c) { c.classList.remove('active'); });
+      chip.classList.add('active');
+      var accent = ACCENT[chip.getAttribute('data-accent')] || ACCENT.blue;
+      pdNum.textContent = chip.querySelector('.phase-num').textContent;
+      pdNum.style.color = accent;
+      panel.style.borderLeftColor = accent;
+      pdName.textContent = chip.querySelector('.phase-name').textContent;
+      pdDesc.innerHTML = chip.getAttribute('data-desc') || '';
+    }
+
+    chips.forEach(function (chip, i) {
+      chip.addEventListener('mouseenter', function () { hovering = true; if (pdRot) pdRot.style.opacity = '0'; render(i); });
+      chip.addEventListener('mouseleave', function () { hovering = false; if (pdRot) pdRot.style.opacity = '0.7'; });
+    });
+
+    render(0);
+    setInterval(function () {
+      if (hovering) return;
+      if (!s5b.classList.contains('active')) return;
+      render(idx + 1);
+    }, 3800);
+  })();
 </script>
 
 </body>
