@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thinking in Loops @ SafeLease</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #1c2128;
+    --border: #30363d;
+    --border-light: #21262d;
+    --blue: #58a6ff;
+    --blue-dim: rgba(88, 166, 255, 0.15);
+    --blue-glow: rgba(88, 166, 255, 0.1);
+    --green: #7ee787;
+    --green-dim: rgba(126, 231, 135, 0.15);
+    --orange: #ffa657;
+    --orange-dim: rgba(255, 166, 87, 0.12);
+    --red: #ff7b72;
+    --red-dim: rgba(255, 123, 114, 0.12);
+    --purple: #d2a8ff;
+    --yellow: #e3b341;
+    --text: #e6edf3;
+    --text-secondary: #c9d1d9;
+    --text-dim: #8b949e;
+    --text-muted: #484f58;
+    --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: #000;
+    color: var(--text);
+    font-family: var(--sans);
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .frame {
+    position: absolute;
+    width: 1920px;
+    height: 1080px;
+    transform-origin: top left;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  .frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(88, 166, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(88, 166, 255, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .frame::after {
+    content: '';
+    position: absolute;
+    width: 1000px;
+    height: 1000px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--blue-glow) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+    animation: breathe 8s ease-in-out infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.6; }
+  }
+
+  /* ── Ghost mascot ── */
+  /* ── Ghost progress indicator ── */
+  .ghost-track {
+    position: fixed;
+    bottom: 20px;
+    left: 40px;
+    right: 40px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    z-index: 300;
+  }
+  .ghost {
+    position: fixed;
+    bottom: 10px;
+    left: 40px;
+    font-size: 28px;
+    z-index: 301;
+    pointer-events: none;
+    opacity: 0.5;
+    filter: drop-shadow(0 0 8px rgba(88, 166, 255, 0.4));
+    transition: left 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+    animation: ghostFloat 3s ease-in-out infinite;
+  }
+  .ghost:hover { opacity: 0.8; pointer-events: auto; }
+  @keyframes ghostFloat {
+    0% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(8px) rotate(2deg); }
+    50% { transform: translateX(-8px) rotate(-2deg); }
+    75% { transform: translateX(6px) rotate(1deg); }
+    100% { transform: translateX(0) rotate(0deg); }
+  }
+  .ghost.jumping {
+    animation: ghostHop 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity: 0.7;
+  }
+  @keyframes ghostHop {
+    0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+    40% { transform: translate(0, -30px) rotate(-8deg) scale(1.2); }
+    70% { transform: translate(0, -20px) rotate(5deg) scale(1.15); }
+    100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  }
+
+  /* ── Sections ── */
+  .section {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 120px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.7s ease, transform 0.7s ease, filter 0.7s ease;
+    z-index: 1;
+    transform: scale(0.97) translateY(10px);
+    filter: blur(4px);
+  }
+  .section.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+  /* Base state for .anim children (hidden); enter/exit driven by JS animateIn/animateOut */
+  .section .anim {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  /* ── Typography ── */
+  h1 {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 64px;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  h1 .grad {
+    background: linear-gradient(135deg, var(--text), var(--blue), var(--green), var(--blue), var(--text));
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 8s ease infinite;
+  }
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  h2 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 28px;
+    color: var(--text-dim);
+    letter-spacing: -0.01em;
+  }
+  .label {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--blue);
+    margin-bottom: 12px;
+  }
+  p, li { font-size: 18px; line-height: 1.7; color: var(--text-secondary); }
+
+  /* ── Terminal ── */
+  .terminal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(88,166,255,0.04), 0 8px 40px rgba(0,0,0,0.3);
+    transition: box-shadow 0.4s ease;
+  }
+  .section.active .terminal {
+    animation: termGlow 3s ease-in-out 0.8s both;
+  }
+  @keyframes termGlow {
+    0% { box-shadow: 0 0 0 1px rgba(88,166,255,0.04), 0 8px 40px rgba(0,0,0,0.3); }
+    50% { box-shadow: 0 0 0 1px rgba(88,166,255,0.12), 0 8px 40px rgba(0,0,0,0.3), 0 0 30px rgba(88,166,255,0.06); }
+    100% { box-shadow: 0 0 0 1px rgba(88,166,255,0.06), 0 8px 40px rgba(0,0,0,0.3), 0 0 15px rgba(88,166,255,0.03); }
+  }
+  .terminal-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .terminal-title {
+    flex: 1; text-align: center;
+    font-family: var(--mono); font-size: 12px; color: var(--text-muted);
+  }
+  .terminal-body {
+    padding: 1.25rem 1.5rem;
+    font-family: var(--mono); font-size: 14px; line-height: 1.75;
+    color: var(--text-dim); overflow-x: auto; position: relative;
+  }
+  .tline {
+    white-space: pre; display: block; min-height: 1.75em;
+    opacity: 0; transform: translateX(-6px); filter: blur(2px);
+  }
+
+  .kw { color: var(--blue); } .fn { color: var(--green); } .str { color: var(--orange); }
+  .cmt { color: var(--text-muted); font-style: italic; } .val { color: var(--purple); }
+  .type { color: var(--red); }
+
+  /* ── Layout ── */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+  .cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.25rem 1.5rem;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 20px rgba(88,166,255,0.04);
+    border-color: rgba(88,166,255,0.2);
+  }
+  .card-label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .card-title { font-weight: 700; font-size: 18px; color: var(--text); margin-bottom: 6px; }
+  .card p { font-size: 15px; color: var(--text-dim); line-height: 1.6; }
+
+  /* ── Tweet card ── */
+  .tweet {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    max-width: 38rem;
+    transition: border-color 0.3s ease;
+  }
+  .tweet:hover { border-color: rgba(88,166,255,0.2); }
+  .tweet-header { display: flex; align-items: center; gap: 10px; margin-bottom: 0.75rem; }
+  .tweet-avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 18px; color: var(--text-dim);
+  }
+  .tweet-meta { display: flex; flex-direction: column; }
+  .tweet-name { font-weight: 700; font-size: 15px; color: var(--text); display: flex; align-items: center; gap: 4px; }
+  .tweet-handle { font-size: 13px; color: var(--text-muted); }
+  .tweet-body { font-size: 15.5px; line-height: 1.65; color: var(--text-secondary); font-family: var(--sans); }
+  .tweet-body .hl { font-weight: 700; font-style: normal; }
+  .tweet-footer { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-light); font-family: var(--mono); font-size: 11px; color: var(--text-muted); display: flex; gap: 2rem; }
+
+  /* ── Flow ── */
+  .flow { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .flow-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.5rem 1rem; font-family: var(--mono); font-size: 13px; color: var(--text-dim); white-space: nowrap;
+  }
+  .flow-box.hl { border-color: var(--blue); background: var(--blue-dim); color: var(--blue); }
+  .flow-box.hl-green { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+  .flow-box.hl-orange { border-color: var(--orange); background: var(--orange-dim); color: var(--orange); }
+  .flow-box.hl-red { border-color: var(--red); background: var(--red-dim); color: var(--red); }
+  .flow-arrow { color: var(--text-muted); font-family: var(--mono); font-size: 14px; }
+  .flow > * {
+    opacity: 0; transform: translateX(-8px);
+  }
+
+  /* ── Misc ── */
+  .insight {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 1rem 1.25rem; background: var(--blue-dim);
+    border: 1px solid rgba(88,166,255,0.15); border-radius: 8px;
+    font-size: 15px; color: var(--text-secondary); line-height: 1.6;
+  }
+  .insight.warn { background: rgba(227,179,65,0.10); border-color: rgba(227,179,65,0.25); }
+  .insight-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+
+  .badge {
+    display: inline-block; font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 6px; margin-right: 6px;
+  }
+  .badge-blue { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(88,166,255,0.25); }
+  .badge-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(126,231,135,0.25); }
+  .badge-orange { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,166,87,0.25); }
+  .badge-red { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,123,114,0.25); }
+  .badge-purple { background: rgba(210,168,255,0.12); color: var(--purple); border: 1px solid rgba(210,168,255,0.25); }
+
+  .spectrum { display: flex; align-items: center; gap: 0; margin: 1.5rem 0; }
+  .spectrum-end { font-family: var(--mono); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding: 8px 16px; border-radius: 6px; white-space: nowrap; }
+  .spectrum-bar { flex: 1; height: 3px; min-width: 80px; }
+
+  .nav-dots { display: none; }
+
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px rgba(126,231,135,0.4); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .float-badge {
+    position: absolute; font-family: var(--mono); font-size: 12px; color: var(--text-muted);
+    background: rgba(22,27,34,0.7); border: 1px solid var(--border-light); border-radius: 6px;
+    padding: 4px 12px; white-space: nowrap; animation: float 6s ease-in-out infinite; z-index: 0;
+  }
+  @keyframes float { 0%, 100% { transform: translateY(0); opacity: 0.45; } 50% { transform: translateY(-12px); opacity: 0.75; } }
+
+  /* ── Phase chips (interactive — hover for detail) ── */
+  .phase-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem; }
+  .phase {
+    position: relative; display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.95rem 1.1rem; cursor: default;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .phase:hover { transform: translateY(-3px); border-color: rgba(88,166,255,0.45); box-shadow: 0 6px 24px rgba(0,0,0,0.35), 0 0 22px rgba(88,166,255,0.07); z-index: 40; }
+  .phase-num { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--blue); min-width: 26px; text-align: center; }
+  .phase-name { font-weight: 700; font-size: 15px; color: var(--text); }
+  .phase.start { border-left: 3px solid var(--blue); }
+  .phase.refine { border-left: 3px solid var(--green); }
+  .phase.refine .phase-num, .phase.refine .phase-name { color: var(--green); }
+  .phase-hint { margin-left: auto; font-size: 12px; color: var(--text-muted); opacity: 0.55; transition: opacity 0.2s ease, color 0.2s ease; }
+  .phase:hover .phase-hint { opacity: 0.9; color: var(--blue); }
+  .phase-tip {
+    position: absolute; bottom: calc(100% + 10px); left: 50%;
+    transform: translateX(-50%) translateY(6px);
+    width: 290px; background: var(--surface-2); border: 1px solid rgba(88,166,255,0.25);
+    border-radius: 8px; padding: 11px 14px; font-size: 12.5px; line-height: 1.5;
+    color: var(--text-secondary); box-shadow: 0 10px 34px rgba(0,0,0,0.5);
+    opacity: 0; pointer-events: none; z-index: 60;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+  .phase-tip::after {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 6px solid transparent; border-top-color: var(--surface-2);
+  }
+  .phase:hover .phase-tip { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<canvas id="particles" style="position:fixed;inset:0;z-index:0;pointer-events:none;"></canvas>
+
+<div class="frame" id="frame">
+
+<div class="float-badge" style="top:8%;left:5%;animation-delay:0s;">/add-new-doctype</div>
+<div class="float-badge" style="top:18%;right:7%;animation-delay:1.2s;">retrospective → fold back</div>
+<div class="float-badge" style="bottom:22%;left:4%;animation-delay:2.5s;">N+1 &lt; N</div>
+<div class="float-badge" style="bottom:10%;right:5%;animation-delay:3.8s;">/goal · /loop</div>
+<div class="float-badge" style="top:42%;left:3%;animation-delay:1.8s;">investigate → iterate → verify → refine</div>
+<div class="float-badge" style="top:38%;right:3%;animation-delay:0.6s;">benchmark = the gate</div>
+
+<!-- ═══════════ SECTION 0: TITLE ═══════════ -->
+<div class="section" id="s0">
+  <div style="max-width:840px;">
+    <div class="terminal anim" style="margin-bottom:2.5rem;">
+      <div class="terminal-header">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <div class="terminal-title">safelease — kindergarten</div>
+      </div>
+      <div class="terminal-body"><span class="kw">~/safelease</span> <span class="fn">$</span> <span style="color:var(--text);">cat thinking-in-loops.md</span></div>
+    </div>
+    <div class="label anim">SafeLease Kindergarten · Engineering</div>
+    <h1 class="anim" style="font-size:84px;margin-bottom:12px;">🔁 <span class="grad">Thinking in Loops</span></h1>
+    <h2 class="anim" style="margin-bottom:2rem;">Turn Repeatable Work into Self-Improving Skill Loops</h2>
+    <p class="anim" style="max-width:46rem;color:var(--text-dim);font-size:16px;">
+      When a task is a <em>known shape</em> you'll do many times, stop hand-prompting it.
+      Design a <strong style="color:var(--text);">loop</strong> that runs the agent end to end —
+      and sharpens itself every run.
+    </p>
+    <div class="anim" style="margin-top:2rem;font-family:var(--mono);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px;">
+      <span class="status-dot"></span> June 2026 · Zac Donhauser
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 1: THE PARADIGM (QUOTES) ═══════════ -->
+<div class="section" id="s1">
+  <div class="label anim">The Paradigm</div>
+  <h1 class="anim" style="margin-bottom:1.5rem;">From Prompting <span style="color:var(--text-muted);">→</span> to <span class="grad">Writing Loops</span></h1>
+
+  <div class="cols anim" style="align-items:start;gap:2.5rem;">
+    <div class="tweet">
+      <div class="tweet-header">
+        <div class="tweet-avatar">BC</div>
+        <div class="tweet-meta">
+          <div class="tweet-name">Boris Cherny <span style="color:var(--blue);font-size:12px;">✓</span></div>
+          <div class="tweet-handle">Head of Claude Code, Anthropic · Jun 2, 2026</div>
+        </div>
+      </div>
+      <div class="tweet-body">
+        I don't prompt Claude anymore. I have <span class="hl" style="color:var(--blue);">loops that are running</span>.
+        They're the ones that are prompting Claude and figuring out what to do.
+        <span class="hl" style="color:var(--blue);">My job is to write loops.</span>
+      </div>
+      <div class="tweet-footer">
+        <span>Acquired Unplugged</span><span>presented by WorkOS</span>
+      </div>
+    </div>
+
+    <div class="tweet">
+      <div class="tweet-header">
+        <div class="tweet-avatar">PS</div>
+        <div class="tweet-meta">
+          <div class="tweet-name">Peter Steinberger <span style="color:var(--blue);font-size:12px;">✓</span></div>
+          <div class="tweet-handle">@steipete · Jun 8, 2026</div>
+        </div>
+      </div>
+      <div class="tweet-body">
+        Here's your monthly reminder that you shouldn't be
+        <span class="hl" style="color:var(--green);">prompting</span> coding agents anymore.
+        You should be <span class="hl" style="color:var(--green);">designing loops that prompt your agents</span>.
+      </div>
+      <div class="tweet-footer">
+        <span>♡ 6.2K</span><span>↻ 1.1K</span><span>💬 430</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="insight anim" style="margin-top:1.5rem;max-width:54rem;">
+    <span class="insight-icon">→</span>
+    <span>The industry is converging on the same shift. The interesting question for us isn't <em>whether</em> — it's <em>where</em> our repeatable work already fits this shape.</span>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 2: THE SHIFT ═══════════ -->
+<div class="section" id="s2">
+  <div class="label anim">The Shift</div>
+  <h1 class="anim" style="margin-bottom:0.5rem;">Prompt Engineering <span style="color:var(--text-muted);">→</span> <span class="grad">Loop Engineering</span></h1>
+  <p class="anim" style="color:var(--text-dim);max-width:54rem;margin-bottom:1.25rem;">Prompt engineering optimizes a single human → agent turn. Loop engineering optimizes the <em>system</em> that drives the agent — and you build it once.</p>
+
+  <div class="flow anim" style="margin-bottom:1.5rem;">
+    <div class="flow-box hl">Find the work</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box" style="border-color:var(--purple);color:var(--purple);">Hand agent goal + state</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box hl-green">Run checks on output</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box hl-orange">Feed failures back</div>
+    <div class="flow-arrow">↺</div>
+    <div class="flow-box">Done → notify you</div>
+  </div>
+
+  <div class="cols anim">
+    <div class="card" style="border-color:var(--red);">
+      <div class="card-label" style="color:var(--red);">Before · Prompt engineering</div>
+      <div class="card-title">You type each prompt</div>
+      <p>One turn at a time. Every instance starts from scratch. The lessons live in your head and evaporate between tasks.</p>
+    </div>
+    <div class="card" style="border-color:var(--green);">
+      <div class="card-label" style="color:var(--green);">After · Loop engineering</div>
+      <div class="card-title">You design the loop; it prompts the agent</div>
+      <p>Your job moves up a level: orchestrator + high-level decision-maker. The loop finds work, iterates, and self-checks.</p>
+    </div>
+  </div>
+
+  <div class="insight anim" style="margin-top:1.25rem;max-width:54rem;">
+    <span class="insight-icon">⚖️</span>
+    <span>Loop design is <em>harder</em> than prompt design — but you do it once and it pays back across every run. More up-front structure, far less manual repetition.</span>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 3: SELF-IMPROVING ═══════════ -->
+<div class="section" id="s3">
+  <div class="label anim">The Compounding Part</div>
+  <h1 class="anim" style="margin-bottom:0.5rem;">What Makes a Loop <span class="grad">Self-Improving</span></h1>
+  <p class="anim" style="color:var(--text-dim);max-width:54rem;margin-bottom:1.25rem;">A plain script automates the steps. A self-improving loop gets <em>better every time it runs</em> — that's the difference that matters.</p>
+
+  <div class="anim" style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;">
+    <div class="card" style="border-color:var(--blue);">
+      <div class="card-label" style="color:var(--blue);">The ratchet</div>
+      <div class="card-title">A retrospective is baked in</div>
+      <p>The final step asks: what was wrong / missing this run? what edge case generalizes? — and folds the answers back into the loop immediately, while the friction is fresh.</p>
+    </div>
+    <div class="card" style="border-color:var(--purple);">
+      <div class="card-label" style="color:var(--purple);">Memory</div>
+      <div class="card-title">It captures the non-obvious</div>
+      <p>The hard-won lessons that normally evaporate between tasks get written into the steps — so they're never relearned.</p>
+    </div>
+    <div class="card" style="border-color:var(--green);">
+      <div class="card-label" style="color:var(--green);">Tooling</div>
+      <div class="card-title">It bundles its own templates</div>
+      <p>Repeated boilerplate becomes templates the next run reuses instead of rebuilding from zero.</p>
+    </div>
+    <div class="card" style="border-color:var(--orange);">
+      <div class="card-label" style="color:var(--orange);">Grounding</div>
+      <div class="card-title">It grows from real cases</div>
+      <p>Each run appends a worked example, so the loop generalizes from reality, not theory.</p>
+    </div>
+  </div>
+
+  <div class="insight anim" style="margin-top:1.25rem;max-width:54rem;">
+    <span class="insight-icon">📈</span>
+    <span>Net effect: run <strong style="color:var(--green);">N+1 is cheaper and more correct than run N</strong>. By-hand work has no such ratchet.</span>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 4: WHEN TO REACH FOR ONE ═══════════ -->
+<div class="section" id="s4">
+  <div class="label anim">When To Use It</div>
+  <h1 class="anim" style="margin-bottom:1.25rem;">Reach for a Loop <span class="grad">When…</span></h1>
+
+  <div class="cols anim" style="align-items:start;">
+    <div class="card" style="border-color:var(--green);">
+      <div class="card-label" style="color:var(--green);">✓ Reach for a loop when</div>
+      <ul style="margin:0.5rem 0 0 1.1rem;color:var(--text-dim);font-size:16px;line-height:1.9;">
+        <li>The work is a <strong style="color:var(--text);">known, repeatable shape</strong> — onboarding a new X, a migration, an audit, a review sweep.</li>
+        <li>You'll do it <strong style="color:var(--text);">more than a couple of times</strong> — enough for the up-front design to pay back.</li>
+        <li>The output is <strong style="color:var(--text);">verifiable</strong> — tests, a benchmark, a printed-total oracle — so the loop can self-check without you in the seat.</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:var(--red);">
+      <div class="card-label" style="color:var(--red);">✗ Don't, when</div>
+      <ul style="margin:0.5rem 0 0 1.1rem;color:var(--text-dim);font-size:16px;line-height:1.9;">
+        <li>The work is genuinely <strong style="color:var(--text);">one-off and novel</strong>.</li>
+        <li>There's <strong style="color:var(--text);">no checkable success signal</strong> for the loop to close on.</li>
+        <li>The <strong style="color:var(--text);">thinking itself is the deliverable</strong> and doesn't repeat.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="insight anim" style="margin-top:1.5rem;max-width:54rem;">
+    <span class="insight-icon">🎯</span>
+    <span>The sweet spot: a shape you've already done by hand a few times, with a real-world oracle that can tell the loop when it's right.</span>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 5: WORKED EXAMPLE ═══════════ -->
+<div class="section" id="s5">
+  <div class="label anim">Worked Example</div>
+  <h1 class="anim" style="margin-bottom:0.5rem;">DI Doc-Type Onboarding · <span class="grad">/add-new-doctype</span></h1>
+  <p class="anim" style="color:var(--text-dim);max-width:54rem;margin-bottom:1rem;">Adding a new document type to Document Intelligence is a known shape, done many times — a textbook candidate. The first ~4 doctypes were built by hand, then distilled into one skill.</p>
+
+  <div class="flow anim" style="margin-bottom:1.25rem;font-size:12px;">
+    <div class="flow-box">investigate</div><div class="flow-arrow">→</div>
+    <div class="flow-box">schema</div><div class="flow-arrow">→</div>
+    <div class="flow-box">prompts</div><div class="flow-arrow">→</div>
+    <div class="flow-box">migration</div><div class="flow-arrow">→</div>
+    <div class="flow-box">post-processor</div><div class="flow-arrow">→</div>
+    <div class="flow-box hl-orange">benchmark</div><div class="flow-arrow">→</div>
+    <div class="flow-box">classify</div><div class="flow-arrow">→</div>
+    <div class="flow-box">scope</div><div class="flow-arrow">→</div>
+    <div class="flow-box">handoff</div><div class="flow-arrow">→</div>
+    <div class="flow-box">verify</div><div class="flow-arrow">→</div>
+    <div class="flow-box">staging</div><div class="flow-arrow">→</div>
+    <div class="flow-box hl-green">refine the loop ⟳</div>
+  </div>
+
+  <div class="cols anim" style="grid-template-columns:1.1fr 1fr;">
+    <div class="terminal">
+      <div class="terminal-header">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <div class="terminal-title">~/document-intelligence — claude</div>
+      </div>
+      <div class="terminal-body"><span class="kw">&gt;</span> <span style="color:var(--text);">/add-new-doctype loss_run</span>
+
+<span class="fn">●</span> Investigating <span class="val">12</span> real loss-run PDFs...
+<span class="fn">●</span> Designing schema <span class="cmt">// flat arrays + grouping keys</span>
+<span class="fn">●</span> Writing prompt blocks + migration
+<span class="fn">●</span> Post-processor <span class="cmt">// pure re-nesting fn</span>
+<span class="fn">●</span> Benchmark vs ground truth... <span class="val">95%</span> ✓
+<span class="fn">●</span> Phase 11 — <span class="kw">refining the skill</span> ✓
+<span class="cmt">// human orchestrates; loop drives the agent</span></div>
+    </div>
+    <div>
+      <div class="card" style="border-color:var(--blue);margin-bottom:0.75rem;">
+        <div class="card-label" style="color:var(--blue);">The loop = 12 phases</div>
+        <div class="card-title">Encodes the thinking, not just the steps</div>
+        <p>The high-leverage judgment is front-loaded: <em>investigate the real inputs before designing anything</em>. The mechanical steps are downstream.</p>
+      </div>
+      <div class="card" style="border-color:var(--green);">
+        <div class="card-label" style="color:var(--green);">Phase 11 · the self-improvement step</div>
+        <div class="card-title">The loop edits itself</div>
+        <p>Every run: run the retrospective, grow the worked-example set, reuse bundled harness/scorer templates. Doctype N+1 is cheaper than N.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 5b: THE 12 PHASES ═══════════ -->
+<div class="section" id="s5b">
+  <div class="label anim">The Skill Process</div>
+  <h1 class="anim" style="margin-bottom:0.4rem;">Inside the Loop · <span class="grad">The 12 Phases</span></h1>
+  <p class="anim" style="color:var(--text-dim);max-width:54rem;margin-bottom:1.1rem;font-size:16px;">Worked in order, one checkable step at a time. Each links to a reference file with the concrete commands — and each run sharpens the steps for the next. <span style="color:var(--blue);">Hover any phase</span> for what it does.</p>
+
+  <div class="phase-grid anim">
+    <div class="phase start"><span class="phase-num">0</span><span class="phase-name">Investigate real docs</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Pull real examples, read their stored OCR, and catalog the variance — <em>before</em> designing anything. The one rule that matters most.</div></div>
+    <div class="phase"><span class="phase-num">1</span><span class="phase-name">Design the schema</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Faithful + document-native: transcribe what's printed, add only light mechanical derivation. Flat arrays + grouping keys — no array-in-array.</div></div>
+    <div class="phase"><span class="phase-num">2</span><span class="phase-name">Prompt blocks</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Compose the system prompt from reusable, doc-type-agnostic blocks. Make a new block only when it's cohesive — never fragment arbitrarily.</div></div>
+    <div class="phase"><span class="phase-num">3</span><span class="phase-name">Migration</span><span class="phase-hint">ⓘ</span><div class="phase-tip">One migration: flip the registry row to enabled, insert the prompt sections + the versioned schema. Insert a new version, never mutate.</div></div>
+    <div class="phase"><span class="phase-num">4</span><span class="phase-name">Post-processor</span><span class="phase-hint">ⓘ</span><div class="phase-tip">A pure function that re-nests the LLM's flat arrays into the stored wire shape and derives aggregates. Unit-tested with literal in/out.</div></div>
+    <div class="phase"><span class="phase-num" style="color:var(--orange);">5</span><span class="phase-name">Benchmark</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Ground-truth from real docs via the fast local harness; verify against the real doc; report adjusted scores only. The accuracy gate.</div></div>
+    <div class="phase"><span class="phase-num">6</span><span class="phase-name">Classification</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Confirm a <em>fresh</em> doc routes to the new type. Old docs read as their pre-existing type (stale labels) — only tune hints if a fresh doc misroutes.</div></div>
+    <div class="phase"><span class="phase-num">7</span><span class="phase-name">Scope &amp; follow-ups</span><span class="phase-hint">ⓘ</span><div class="phase-tip">State clearly what's in this PR vs deferred (e.g. the consumer-side ingest). File follow-up tickets instead of contorting DI now.</div></div>
+    <div class="phase"><span class="phase-num">8</span><span class="phase-name">Consumer handoff spec</span><span class="phase-hint">ⓘ</span><div class="phase-tip">A skim-first doc for the PR reviewer + downstream team: real examples, the DI-vs-consumer scope boundary, and the field mapping.</div></div>
+    <div class="phase"><span class="phase-num">9</span><span class="phase-name">Verify</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Build + tests + the scorer over the regression set, then one final end-to-end run through the real pipeline as a sanity check.</div></div>
+    <div class="phase"><span class="phase-num">10</span><span class="phase-name">Staging verification</span><span class="phase-hint">ⓘ</span><div class="phase-tip">The real end-to-end on a prod replica: fresh classification, source attribution, push behavior, and accuracy across the wider corpus.</div></div>
+    <div class="phase refine"><span class="phase-num">11</span><span class="phase-name">Refine this skill ⟳</span><span class="phase-hint">ⓘ</span><div class="phase-tip">Retrospective — fold what was wrong / missing back into the skill <em>now</em>, and grow the worked-example set. The self-improvement step.</div></div>
+  </div>
+
+  <div class="insight anim" style="margin-top:1rem;max-width:54rem;">
+    <span class="insight-icon">🧠</span>
+    <span>The skill encodes the <strong style="color:var(--text);">thinking</strong> (Phase 0 — investigate before you design), not just the mechanics. Get the thinking right and the rest is downstream.</span>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 6: HOW IT'S BEEN USED ═══════════ -->
+<div class="section" id="s6">
+  <div class="label anim">The Proof · Latest</div>
+  <h1 class="anim" style="margin-bottom:0.5rem;">From 1 Loop <span style="color:var(--text-muted);">→</span> <span class="grad">a Week of Shipping</span></h1>
+  <p class="anim" style="color:var(--text-dim);max-width:54rem;margin-bottom:1.25rem;">4 doctypes by hand → a loop for the 5th → four more through the loop in about a week, then the loop refined itself and generalized to a task it was never built for.</p>
+
+  <div class="anim" style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;">
+    <div class="card">
+      <div style="margin-bottom:0.5rem;"><span class="badge badge-green">merged · #32</span> <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">the 5th doctype</span></div>
+      <div class="card-title"><code style="color:var(--blue);">loss_run</code> — the dogfood case</div>
+      <p>First doctype through the loop. <strong style="color:var(--green);">~95% automated</strong>, human orchestrating.</p>
+    </div>
+    <div class="card">
+      <div style="margin-bottom:0.5rem;"><span class="badge badge-green">merged · #35</span> <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">one day · side work · day after loss_run</span></div>
+      <div class="card-title">3 policy types — in a single day</div>
+      <p><code style="color:var(--purple);">binder</code> · <code style="color:var(--purple);">quote_or_proposal</code> · <code style="color:var(--purple);">policy_dec_page</code> — all reuse the shared policy schema. Three doctypes as <strong style="color:var(--text);">side work</strong>, <strong style="color:var(--green);">~96–98%</strong> on 12 real docs.</p>
+    </div>
+    <div class="card" style="border-color:var(--blue);">
+      <div style="margin-bottom:0.5rem;"><span class="badge badge-blue">merged · #36</span> <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">6/11</span></div>
+      <div class="card-title">The loop edited its own instructions</div>
+      <p>Folded lessons into <strong style="color:var(--text);">zero-question autonomy defaults</strong> + a cross-repo canary process. The retrospective, shipped.</p>
+    </div>
+    <div class="card" style="border-color:var(--orange);">
+      <div style="margin-bottom:0.5rem;"><span class="badge badge-orange">in review · #38</span> <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">launched overnight via Fable</span></div>
+      <div class="card-title">PDF packet splitting <span style="color:var(--text-muted);font-size:13px;">(not a doctype!)</span></div>
+      <p>An <em>adjacent</em> task, kicked off as an <strong style="color:var(--text);">automated overnight run</strong> — reused the loop's prompt-iteration + benchmark spine to land a PR ready for morning review.</p>
+    </div>
+  </div>
+
+  <div class="insight anim" style="margin-top:1.25rem;max-width:54rem;">
+    <span class="insight-icon">🔁</span>
+    <span>Four doctypes in a week — three of them a single day of side work, the latest kicked off <strong style="color:var(--text);">overnight while I slept</strong> — only realistic because the loop <strong style="color:var(--green);">compounds</strong> where by-hand work restarts.</span>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 8: KEEP THE SPINE GENERAL ═══════════ -->
+<div class="section" id="s8">
+  <div class="label anim">The Lesson</div>
+  <h1 class="anim" style="margin-bottom:0.5rem;">One Loop, a <span class="grad">Family of Tasks</span></h1>
+  <p class="anim" style="color:var(--text-dim);max-width:54rem;margin-bottom:1.25rem;">The packet-splitting run is the surprising one. The skill was built to onboard doctypes — yet it drove a totally different deliverable.</p>
+
+  <div class="cols anim" style="margin-bottom:1rem;">
+    <div class="card" style="border-color:var(--purple);">
+      <div class="card-label" style="color:var(--purple);">Built for</div>
+      <div class="card-title">Doctypes · ~5–13 files</div>
+      <p>schema → prompts → migration → post-processor → benchmark. No change to pipeline control flow.</p>
+    </div>
+    <div class="card" style="border-color:var(--orange);">
+      <div class="card-label" style="color:var(--orange);">Worked for</div>
+      <div class="card-title">Packet splitting · ~41 files</div>
+      <p>A pipeline/control-flow change: page-aware classification, physical PDF splitting, a new sub-document data model. Never in scope.</p>
+    </div>
+  </div>
+
+  <div class="flow anim" style="margin-bottom:1rem;">
+    <div class="flow-box hl-green">investigate real docs</div><div class="flow-arrow">→</div>
+    <div class="flow-box hl-green">iterate prompts vs benchmark</div><div class="flow-arrow">→</div>
+    <div class="flow-box hl-green">verify</div><div class="flow-arrow">→</div>
+    <div class="flow-box hl-green">refine</div>
+    <div class="flow-arrow" style="color:var(--text-dim);">= the transferable spine</div>
+  </div>
+
+  <div class="insight warn anim" style="max-width:54rem;">
+    <span class="insight-icon">📌</span>
+    <span>Design the loop's core steps to be <strong style="color:var(--yellow);">task-shaped, not output-shaped.</strong> The <em>method</em> transfers; push the specifics into overridable steps + worked examples — and one loop covers a family of adjacent tasks.</span>
+  </div>
+
+  <div class="insight anim" style="margin-top:0.9rem;max-width:54rem;">
+    <span class="insight-icon">🌙</span>
+    <span>Run unattended overnight, the spine <strong style="color:var(--green);">nailed the prompt iteration and the split logic</strong> — the only tweaks were how it structured output into the data models. The loop took the boring, cumbersome part; I focus on the <strong style="color:var(--text);">enjoyable architecture</strong>.</span>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 9: HOW TO BUILD ONE ═══════════ -->
+<div class="section" id="s9">
+  <div class="label anim">The Playbook</div>
+  <h1 class="anim" style="margin-bottom:1.25rem;">How to <span class="grad">Build One</span></h1>
+
+  <div class="anim" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;max-width:60rem;">
+    <div class="card">
+      <div class="card-title"><span style="color:var(--blue);">01</span> &nbsp;Do it by hand first</div>
+      <p>You can't abstract a shape you haven't felt. Dogfood a few times, then distill.</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span style="color:var(--blue);">02</span> &nbsp;Name the phases</div>
+      <p>The repeatable sequence, one checkable step at a time.</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span style="color:var(--blue);">03</span> &nbsp;Encode the thinking</div>
+      <p>Front-load the high-leverage judgment, not just the mechanics. "Investigate the real inputs first."</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span style="color:var(--blue);">04</span> &nbsp;Bake in the retrospective</div>
+      <p>Make it the final phase — this is what makes it self-improving, not a static checklist.</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span style="color:var(--blue);">05</span> &nbsp;Bundle &amp; grow</div>
+      <p>Templates for boilerplate, worked examples from each run, pre-flight checks that encode past failures.</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span style="color:var(--blue);">06</span> &nbsp;Keep the spine general</div>
+      <p>Task-shaped, not output-shaped — so it transfers to adjacent work with override instructions.</p>
+    </div>
+  </div>
+
+  <div class="insight anim" style="margin-top:1rem;max-width:60rem;">
+    <span class="insight-icon">07</span>
+    <span><strong style="color:var(--text);">Let it run; you orchestrate.</strong> Design the loop, make the high-level calls, and let the loop drive the agent.</span>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 10: TAKEAWAYS ═══════════ -->
+<div class="section" id="s10">
+  <div class="label anim">Takeaways</div>
+  <h1 class="anim" style="margin-bottom:1.5rem;">Start <span class="grad">Thinking in Loops</span></h1>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;max-width:58rem;" class="anim">
+    <div class="card">
+      <div class="card-title"><span style="color:var(--blue);">01</span> &nbsp;Loop, don't hand-prompt</div>
+      <p>When work is a known shape you'll repeat, design the system that prompts the agent — not each turn.</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span style="color:var(--blue);">02</span> &nbsp;Self-improving = the ratchet</div>
+      <p>A baked-in retrospective makes run N+1 cheaper and more correct than run N. That's the whole game.</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span style="color:var(--blue);">03</span> &nbsp;Verifiable or bust</div>
+      <p>A benchmark / test / oracle is what lets the loop self-check and run without you in the seat.</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span style="color:var(--blue);">04</span> &nbsp;Keep the spine general</div>
+      <p>One well-shaped loop covers a family of adjacent tasks with override instructions.</p>
+    </div>
+  </div>
+
+  <div class="tweet anim" style="margin-top:1.5rem;max-width:50rem;">
+    <div class="tweet-header">
+      <div class="tweet-avatar">BC</div>
+      <div class="tweet-meta">
+        <div class="tweet-name">Boris Cherny <span style="color:var(--blue);font-size:12px;">✓</span></div>
+        <div class="tweet-handle">Head of Claude Code, Anthropic</div>
+      </div>
+    </div>
+    <div class="tweet-body">
+      "My job is to <span class="hl" style="color:var(--blue);">write loops</span>." — the next wave of abstraction. Our turn.
+    </div>
+  </div>
+
+  <div class="anim" style="margin-top:1.25rem;font-family:var(--mono);font-size:13px;color:var(--text-muted);display:flex;align-items:center;gap:12px;">
+    <span class="status-dot"></span>
+    <span>It's time to start thinking in loops, not manual prompting, wherever possible.</span>
+    <span style="margin-left:auto;">/add-new-doctype · the first proof</span>
+  </div>
+</div>
+
+</div><!-- end frame -->
+
+<div class="ghost-track"></div>
+<div class="ghost" id="ghost">👾</div>
+<div class="nav-dots" id="dots"></div>
+
+<script>
+  var frame = document.getElementById('frame');
+  var sections = document.querySelectorAll('.section');
+  var dotsContainer = document.getElementById('dots');
+  var current = 0;
+  var transitioning = false;
+  var LINE_STAGGER = 80;
+  var LEAVE_STAGGER = 50;
+  var LEAVE_DURATION = 500;
+
+  sections.forEach(function(_, i) {
+    var dot = document.createElement('button');
+    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    dot.addEventListener('click', function() { show(i); });
+    dotsContainer.appendChild(dot);
+  });
+  var dots = document.querySelectorAll('.nav-dot');
+
+  // Process terminal bodies into lines
+  document.querySelectorAll('.terminal-body').forEach(function(tb) {
+    var html = tb.innerHTML;
+    var lines = html.split('\n');
+    var wrapped = lines.map(function(line, i) {
+      return '<div class="tline">' + (line || ' ') + '</div>';
+    }).join('');
+    tb.innerHTML = wrapped;
+  });
+
+  // Enter/exit delays are handled by animateIn/animateOut via Web Animations API
+
+  function scaleFrame() {
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    var scale = Math.min(vw / 1920, vh / 1080);
+    frame.style.transform = 'scale(' + scale + ')';
+    frame.style.left = ((vw - 1920 * scale) / 2) + 'px';
+    frame.style.top = ((vh - 1080 * scale) / 2) + 'px';
+  }
+  window.addEventListener('resize', scaleFrame);
+  scaleFrame();
+
+  function animateOut(section, callback) {
+    var anims = section.querySelectorAll('.anim');
+    var tlines = section.querySelectorAll('.tline');
+    var count = anims.length;
+    var totalDuration = 0;
+    var ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+    // Animate .anim children out in reverse order (last disappears first)
+    for (var i = 0; i < count; i++) {
+      var reverseIndex = count - 1 - i;
+      var delay = reverseIndex * 50;
+      var dur = 350;
+      if (delay + dur > totalDuration) totalDuration = delay + dur;
+      anims[i].animate([
+        { opacity: 1, transform: 'translateY(0)' },
+        { opacity: 0, transform: 'translateY(14px)' }
+      ], { duration: dur, delay: delay, easing: ease, fill: 'forwards' });
+    }
+
+    // Animate flow children out
+    var flowKids = section.querySelectorAll('.flow > *');
+    flowKids.forEach(function(el, i) {
+      el.animate([
+        { opacity: 1, transform: 'translateX(0)' },
+        { opacity: 0, transform: 'translateX(-8px)' }
+      ], { duration: 200, delay: i * 15, easing: ease, fill: 'forwards' });
+    });
+
+    // Animate terminal lines out bottom-to-top
+    tlines.forEach(function(line, i) {
+      var lineCount = tlines.length;
+      var delay = (lineCount - 1 - i) * 20;
+      var dur = 200;
+      if (delay + dur > totalDuration) totalDuration = delay + dur;
+      line.animate([
+        { opacity: 1, transform: 'translateX(0)', filter: 'blur(0)' },
+        { opacity: 0, transform: 'translateX(6px)', filter: 'blur(2px)' }
+      ], { duration: dur, delay: delay, easing: ease, fill: 'forwards' });
+    });
+
+    // Include flow children in totalDuration
+    flowKids.forEach(function(el, i) {
+      var fd = i * 15 + 200;
+      if (fd > totalDuration) totalDuration = fd;
+    });
+
+    // After everything animates out, fire callback
+    setTimeout(callback, totalDuration + 50);
+  }
+
+  function clearAnimations(section) {
+    // Only cancel Web Animations API animations (from animateIn/animateOut),
+    // NOT CSS transitions or CSS animations — cancelling those causes visual glitches.
+    function cancelWAAPI(el) {
+      el.getAnimations().forEach(function(a) {
+        if (a instanceof CSSTransition || a instanceof CSSAnimation) return;
+        a.cancel();
+      });
+    }
+    section.querySelectorAll('*').forEach(cancelWAAPI);
+    cancelWAAPI(section);
+  }
+
+  function animateIn(section) {
+    var ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
+    // fill:'both' ensures FROM state (opacity:0) applies during delay,
+    // preventing any flash from old fill:forwards animations still on the element.
+
+    // Animate .anim children in with staggered delays
+    var anims = section.querySelectorAll('.anim');
+    anims.forEach(function(el, i) {
+      el.animate([
+        { opacity: 0, transform: 'translateY(14px)' },
+        { opacity: 1, transform: 'translateY(0)' }
+      ], { duration: 600, delay: 150 + i * 150, easing: ease, fill: 'both' });
+    });
+
+    // Animate terminal lines in
+    var tlines = section.querySelectorAll('.tline');
+    tlines.forEach(function(line, i) {
+      line.animate([
+        { opacity: 0, transform: 'translateX(8px)', filter: 'blur(3px)' },
+        { opacity: 1, transform: 'translateX(0)', filter: 'blur(0)' }
+      ], { duration: 500, delay: 600 + i * LINE_STAGGER, easing: 'ease', fill: 'both' });
+    });
+
+    // Animate flow children in
+    var flowKids = section.querySelectorAll('.flow > *');
+    flowKids.forEach(function(el, i) {
+      el.animate([
+        { opacity: 0, transform: 'translateX(8px)' },
+        { opacity: 1, transform: 'translateX(0)' }
+      ], { duration: 400, delay: 600 + i * 100, easing: ease, fill: 'both' });
+    });
+  }
+
+  function show(n) {
+    n = Math.max(0, Math.min(n, sections.length - 1));
+    if (n === current && sections[current].classList.contains('active')) return;
+    if (transitioning) return;
+
+    var prev = current;
+    current = n;
+    dots.forEach(function(d, i) { d.classList.toggle('active', i === current); });
+
+    if (prev === n) {
+      sections.forEach(function(s, i) { s.classList.toggle('active', i === current); });
+      animateIn(sections[current]);
+      return;
+    }
+
+    var prevSection = sections[prev];
+    transitioning = true;
+
+    // Ghost hops along the progress track
+    var ghost = document.getElementById('ghost');
+    var progress = current / (sections.length - 1);
+    var trackWidth = window.innerWidth - 80; // 40px padding each side
+    ghost.style.left = (40 + progress * trackWidth - 14) + 'px';
+    ghost.className = 'ghost';
+    void ghost.offsetWidth;
+    ghost.classList.add('jumping');
+    setTimeout(function() { ghost.classList.remove('jumping'); }, 500);
+
+    // Animate the old section out, then switch
+    animateOut(prevSection, function() {
+      // Kill prev section instantly — skip the 0.7s CSS fade-out
+      prevSection.style.transition = 'none';
+      prevSection.classList.remove('active');
+      clearAnimations(prevSection);
+      void prevSection.offsetWidth; // flush the instant hide
+      prevSection.style.removeProperty('transition');
+
+      clearAnimations(sections[current]);
+      sections.forEach(function(s, i) { s.classList.toggle('active', i === current); });
+      animateIn(sections[current]);
+      transitioning = false;
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); show(current + 1); }
+    if (e.key === 'ArrowLeft' || e.key === 'Backspace') { e.preventDefault(); show(current - 1); }
+    if (e.key === 'Home') { e.preventDefault(); show(0); }
+    if (e.key === 'End') { e.preventDefault(); show(sections.length - 1); }
+  });
+
+  // Swipe navigation for mobile
+  if (window.innerWidth <= 768) {
+    var touchStartX = 0;
+    var touchStartY = 0;
+    document.addEventListener('touchstart', function(e) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function(e) {
+      var dx = e.changedTouches[0].clientX - touchStartX;
+      var dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return; // too short or vertical
+      if (dx < 0) show(current + 1); // swipe left = next
+      else show(current - 1); // swipe right = prev
+    }, { passive: true });
+  }
+
+  show(0);
+  // Set initial ghost position
+  document.getElementById('ghost').style.left = '26px';
+
+  // Particle constellation
+  var canvas = document.getElementById('particles');
+  var ctx = canvas.getContext('2d');
+  var pts = [];
+  var PCOUNT = 90;
+  var CDIST = 180;
+
+  function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  for (var i = 0; i < PCOUNT; i++) {
+    pts.push({
+      x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5,
+      r: Math.random() * 2 + 0.5,
+    });
+  }
+
+  function drawParticles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (var i = 0; i < pts.length; i++) {
+      var p = pts[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+      if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(88, 166, 255, 0.35)'; ctx.fill();
+      for (var j = i + 1; j < pts.length; j++) {
+        var q = pts[j];
+        var dx = p.x - q.x, dy = p.y - q.y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < CDIST) {
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+          ctx.strokeStyle = 'rgba(88, 166, 255, ' + (0.12 * (1 - dist / CDIST)) + ')';
+          ctx.lineWidth = 0.7; ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(drawParticles);
+  }
+  drawParticles();
+</script>
+
+</body>
+</html>
